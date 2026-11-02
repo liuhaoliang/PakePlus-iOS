@@ -48,8 +48,12 @@ struct WebView: UIViewRepresentable {
             webView.configuration.userContentController.addUserScript(userScript)
         }
 
-        // load url
-        webView.load(URLRequest(url: url))
+        // 优先加载随包内置的演示页面（离线可用），否则回落到配置的远程地址
+        if let localDemoURL = WebView.bundledDemoURL() {
+            webView.loadFileURL(localDemoURL, allowingReadAccessTo: localDemoURL.deletingLastPathComponent())
+        } else {
+            webView.load(URLRequest(url: url))
+        }
 
         // delegate 设置
 
@@ -66,6 +70,10 @@ struct WebView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: WKWebView, context: Context) {
+        if WebView.bundledDemoURL() != nil {
+            // 内置页面已在 makeUIView 中加载，避免重复请求远程地址
+            return
+        }
         let request = URLRequest(url: url)
         print("updateUIView: \(request.url?.absoluteString ?? "")")
         uiView.load(request)
@@ -102,6 +110,11 @@ struct WebView: UIViewRepresentable {
 }
 
 extension WebView {
+    /// 随 App 打包的演示页面（PakePlus/demo.html），存在时优先加载。
+    static func bundledDemoURL() -> URL? {
+        return Bundle.main.url(forResource: "demo", withExtension: "html")
+    }
+
     static func loadJSFile(named filename: String) -> String? {
         guard let path = Bundle.main.path(forResource: filename, ofType: "js") else {
             print("Could not find \(filename).js in bundle")
